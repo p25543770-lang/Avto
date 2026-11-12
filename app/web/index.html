@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI-режиссёр — авто-монтаж видео</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🎬</span>
+      <div>
+        <h1>AI-режиссёр</h1>
+        <p>Загрузите видео — получите чистовик и шортсы в 16:9 и 9:16</p>
+      </div>
+    </div>
+    <div class="chips" id="systemChips">
+      <span class="chip loading">проверяю систему…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ЛЕВАЯ КОЛОНКА -->
+    <section class="panel">
+      <h2>1. Исходник</h2>
+      <div class="dropzone" id="dropzone" tabindex="0">
+        <input type="file" id="fileInput" accept="video/*" hidden>
+        <div class="dz-icon">⬆</div>
+        <p class="dz-title">Перетащите видео сюда</p>
+        <p class="dz-sub">или <button type="button" class="link-btn" id="pickBtn">выберите файл</button></p>
+        <p class="dz-hint">MP4 / MOV / MKV / AVI / WEBM</p>
+      </div>
+      <div class="watch-row">
+        <label class="switch">
+          <input type="checkbox" id="watchToggle">
+          <span class="slider"></span>
+        </label>
+        <div>
+          <div class="watch-title">Следить за папкой <code>input/</code></div>
+          <div class="watch-sub">Новые файлы монтируются автоматически</div>
+        </div>
+      </div>
+
+      <h2>2. Форматы</h2>
+      <div class="field-group">
+        <div class="field-label">Чистовой ролик</div>
+        <div class="chips-choice" id="finalFormats">
+          <label class="choice"><input type="checkbox" value="16:9" checked><span>16:9 горизонтальный</span></label>
+          <label class="choice"><input type="checkbox" value="9:16" checked><span>9:16 вертикальный</span></label>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field-label">Шортсы (Shorts / Reels)</div>
+        <div class="chips-choice" id="shortFormats">
+          <label class="choice"><input type="checkbox" value="9:16" checked><span>9:16</span></label>
+          <label class="choice"><input type="checkbox" value="16:9"><span>16:9</span></label>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="field-group">
+          <label class="field-label" for="shortCount">Шортсов</label>
+          <select id="shortCount">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+            <option value="4">4</option>
+            <option value="5">5</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="language">Язык речи</label>
+          <select id="language">
+            <option value="ru" selected>Русский</option>
+            <option value="en">English</option>
+            <option value="auto">Авто</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="shortMin">Мин. длина шортса</label>
+          <div class="unit-input"><input type="number" id="shortMin" value="30" min="10" max="120" step="5"><span>сек</span></div>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="shortMax">Макс. длина шортса</label>
+          <div class="unit-input"><input type="number" id="shortMax" value="55" min="15" max="180" step="5"><span>сек</span></div>
+        </div>
+      </div>
+
+      <h2>3. Монтаж</h2>
+      <div class="field-group">
+        <label class="check-line">
+          <input type="checkbox" id="removeDuplicates" checked>
+          <span>Удалять дубли и оговорки (смысловая редактура)</span>
+        </label>
+        <label class="check-line">
+          <input type="checkbox" id="useLlm" checked>
+          <span>Использовать локальный LLM для анализа</span>
+        </label>
+      </div>
+      <div class="grid-2">
+        <div class="field-group">
+          <label class="field-label" for="whisperModel">Модель Whisper</label>
+          <select id="whisperModel">
+            <option value="medium" selected>medium (~1.5 ГБ VRAM)</option>
+            <option value="large-v3-turbo">large-v3-turbo (~1.2 ГБ VRAM)</option>
+            <option value="small">small (быстрее)</option>
+            <option value="base">base (быстро, грубо)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="encoder">Кодировщик</label>
+          <select id="encoder">
+            <option value="auto" selected>Авто (NVENC при наличии GPU)</option>
+            <option value="h264_nvenc">h264_nvenc (видеокарта)</option>
+            <option value="libx264">libx264 (процессор)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label" for="silenceMargin">Отступ пауз</label>
+          <div class="unit-input"><input type="number" id="silenceMargin" value="0.2" min="0" max="3" step="0.05"><span>сек</span></div>
+        </div>
+      </div>
+
+      <details class="llm-box">
+        <summary>Локальный LLM (OpenAI-совместимый)</summary>
+        <div class="field-group">
+          <label class="field-label" for="llmUrl">Адрес сервера</label>
+          <input type="text" id="llmUrl" value="http://127.0.0.1:1234/v1" placeholder="http://127.0.0.1:1234/v1">
+        </div>
+        <div class="grid-2">
+          <div class="field-group">
+            <label class="field-label" for="llmModel">Модель</label>
+            <input type="text" id="llmModel" value="local-model" placeholder="например qwen2.5-7b-instruct">
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="llmKey">API-ключ (если нужен)</label>
+            <input type="password" id="llmKey" placeholder="необязательно">
+          </div>
+        </div>
+        <button type="button" class="btn ghost small" id="saveLlm">Сохранить и проверить</button>
+      </details>
+
+      <button type="button" class="btn primary big" id="startBtn" disabled>Смонтировать видео</button>
+      <button type="button" class="btn ghost" id="cancelBtn" hidden>Остановить</button>
+    </section>
+
+    <!-- ПРАВАЯ КОЛОНКА -->
+    <section class="panel">
+      <h2>Процесс</h2>
+      <div class="steps" id="steps">
+        <div class="step" data-step="1"><span class="step-num">1</span><div class="step-body"><div class="step-title">Удаление пауз</div><div class="step-desc">auto-editor / ffmpeg</div></div><span class="step-state"></span></div>
+        <div class="step" data-step="2"><span class="step-num">2</span><div class="step-body"><div class="step-title">Распознавание речи</div><div class="step-desc">faster-whisper, CUDA</div></div><span class="step-state"></span></div>
+        <div class="step" data-step="3"><span class="step-num">3</span><div class="step-body"><div class="step-title">Смысловая редактура</div><div class="step-desc">дубли, главы, шортсы</div></div><span class="step-state"></span></div>
+        <div class="step" data-step="4"><span class="step-num">4</span><div class="step-body"><div class="step-title">Чистовик 16:9 / 9:16</div><div class="step-desc">NVENC + loudnorm</div></div><span class="step-state"></span></div>
+        <div class="step" data-step="5"><span class="step-num">5</span><div class="step-body"><div class="step-title">Шортсы</div><div class="step-desc">яркие фрагменты</div></div><span class="step-state"></span></div>
+        <div class="step" data-step="6"><span class="step-num">6</span><div class="step-body"><div class="step-title">Таймкоды глав</div><div class="step-desc">chapters.txt</div></div><span class="step-state"></span></div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="progress-meta"><span id="progressText">Ожидание файла…</span><span id="progressPct">0%</span></div>
+      </div>
+
+      <details class="log-box" open>
+        <summary>Журнал</summary>
+        <div class="console" id="console"></div>
+      </details>
+
+      <div id="results" class="results hidden">
+        <h2>Результаты</h2>
+        <div id="finalList" class="video-list"></div>
+        <h3>Шортсы</h3>
+        <div id="shortList" class="shorts-grid"></div>
+        <div id="chaptersBox" class="chapters hidden">
+          <h3>Главы</h3>
+          <ol id="chaptersList"></ol>
+        </div>
+        <div id="downloads" class="downloads hidden"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Рабочие папки: <code id="pathsInfo">—</code></span>
+    <span>Все вычисления локальные: ffmpeg + faster-whisper + локальный LLM</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
